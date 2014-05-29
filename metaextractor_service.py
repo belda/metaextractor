@@ -1,7 +1,6 @@
 import json
 import os
-from schemato import Schemato
-from schemato.distillery import ParselyDistiller, NewsDistiller
+from metaextractor import Metaextractor
 from flask import Flask,abort, request, redirect, Response
 app = Flask(__name__, static_url_path='/static')
 
@@ -11,9 +10,9 @@ def mo():
         return redirect("/extracturl")
     else: 
         url = request.args.get("url")
-        sch = Schemato(url)
-        d = NewsDistiller(sch)
-        return Response(json.dumps(d.distill()), mimetype="text/json")
+        e = Metaextractor()
+        ret = e.extract(url=url)
+        return Response(json.dumps(ret ,encoding='utf-8', ensure_ascii=False), mimetype="text/json")
 
 
 @app.route('/extracturl', methods=['GET'])

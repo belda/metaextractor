@@ -112,6 +112,10 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
     		        rec.append( $("<p><a class='link' href='"+d.link+"'>"+d.link+"</a></p>") );
     		        rec.append( $("<p class='description'>"+d.description+"</p><div class='clearfix'/>") );
     		        $("#recordpeak").html(rec);
+    		      },
+    		      error: function (xhr, ajaxOptions, thrownError) {
+    		    	  $("#jsondata").html("ERROR: "+thrownError);
+    		    	  $("#recordpeak").html(xhr.responseText);
     		      }
     		    });
     		    //return false;
