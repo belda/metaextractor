@@ -12,6 +12,7 @@ class Extractor(BasePlugin):
         ret['title'] = xpathit(root,"//title")
         ret['link'] = rsp.url
         ret['image_url'] = xpathit(root, "//link[@rel='image_src']/@href")
+        ret['description'] = xpathit(root, "//meta[@name='description']/@content")
         return ret
         
 def xpathit(elm, xpath):
