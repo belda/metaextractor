@@ -26,6 +26,7 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
 .null { color: magenta; }
 .key { color: red; }
 .author {text-align: right; color: #777;}
+.hide { display: none; }
 
 #recordpeak {position: relative; border: 1px solid grey; padding: 15px; }
 #recordpeak h4 { font-weight: bolder; }
@@ -39,6 +40,11 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
       <div class="">
 	    <h1>Extract META from URL</h1>
         <form action="/extracturl" method="get" id="theform">
+            <p style="text-align:right"><a href="#" id="advanced">advanced parameters</a></p>
+            <div class="hider hide">
+                <p><input type="checkbox" name="nocache" value="no cache" id="nocache"/><label for="nocache">do not use cache</label></p>
+	            <p><input type="text" name="config" id="config" placeholder="{ 'plugins' : ['opengraph', 'htmlfetch', 'schemato'] }" class="form-control"/></p>
+            </div>
             <p><input type="text" name="url" id="url" placeholder="http://address.of.the/article?asdf=1" class="form-control"/></p>
             <p><input type="submit" name="submit" value="GO" class="form-control btn btn-primary"/></p>
         </form>
@@ -53,6 +59,16 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
       <div class="jsondata">
         <h3>JSON data</h3>
         <pre id="jsondata"></pre>
+      </div>
+    
+        
+      <div class="">
+        <a name="about"></a>
+        <h3>About</h3>
+        <div>
+            This is a simple tester page for Metaextractor. Thank guys at <a href="http://uffee.com/">Uffee</a>. 
+            Get the code from <a href="https://github.com/belda/metaextractor">GitHub</a>. It is open source.
+        </div>
       </div>
     
     </div>
@@ -96,7 +112,9 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
       $(document).ready(function(){
     	  var url = getParameterByName("url");
     	  $("#url").val(url);
-    	  //$("#theform").submit(function(){
+    	  $("#config").val(getParameterByName("config"));
+    	  if (getParameterByName("nocache")!="")
+    		  $("#nocache").attr('checked','checked');
           if (url!="") {
     		    $("#jsondata, #recordpeak").html("Loading...");
     		    data = $("#theform").serialize();
@@ -122,7 +140,11 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
     		    });
     		    //return false;
           }
-    	  // });
+    	  
+    	  $("#advanced").click(function(e){
+    		 e.preventDefault();
+    		 $(".hider").toggleClass("hide");
+    	  });
     	  
       });
     

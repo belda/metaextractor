@@ -11,7 +11,11 @@ def mo():
         return redirect("/extracturl")
     else: 
         url = request.args.get("url")
-        e = Metaextractor(config = METAEXTRACTOR_CONFIG)
+        config = dict(METAEXTRACTOR_CONFIG.items())
+        if request.args.get("config"):
+             config.update(json.loads(request.args.get("config")))
+        e = Metaextractor(config = config)
+        #TODO redis cache (request.args.get('nocache')
         ret = e.extract(url=url, content_holder = ContentHolder(url=url))
         return Response(json.dumps(ret ,encoding='utf-8', ensure_ascii=False), mimetype="text/json")
 
