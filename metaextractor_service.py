@@ -1,5 +1,6 @@
 import json
 import os
+from settings import METAEXTRACTOR_CONFIG
 from metaextractor import Metaextractor
 from flask import Flask,abort, request, redirect, Response
 app = Flask(__name__, static_url_path='/static')
@@ -10,7 +11,7 @@ def mo():
         return redirect("/extracturl")
     else: 
         url = request.args.get("url")
-        e = Metaextractor()
+        e = Metaextractor(config = METAEXTRACTOR_CONFIG)
         ret = e.extract(url=url)
         return Response(json.dumps(ret ,encoding='utf-8', ensure_ascii=False), mimetype="text/json")
 
