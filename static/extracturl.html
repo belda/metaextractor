@@ -25,6 +25,7 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
 .boolean { color: blue; }
 .null { color: magenta; }
 .key { color: red; }
+.author {text-align: right; color: #777;}
 
 #recordpeak {position: relative; border: 1px solid grey; padding: 15px; }
 #recordpeak h4 { font-weight: bolder; }
@@ -110,7 +111,8 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
     		        rec.append( $("<h4>"+d.title+"</h4>") );
     		        rec.append( $("<img class='image_url' src='"+d.image_url+"' />") );
     		        rec.append( $("<p><a class='link' href='"+d.link+"'>"+d.link+"</a></p>") );
-    		        rec.append( $("<p class='description'>"+d.description+"</p><div class='clearfix'/>") );
+    		        rec.append( $("<p class='description'>"+d.description+"</p>") );
+    		        rec.append( $("<p class='author'>author: "+d.author+"</p><div class='clearfix'/>") );
     		        $("#recordpeak").html(rec);
     		      },
     		      error: function (xhr, ajaxOptions, thrownError) {
