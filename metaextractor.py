@@ -1,5 +1,6 @@
 import pkgutil
 import eplugins
+import requests
 
 class Metaextractor(object):
     ''' Metaextractor uses available modules to process the input and returned extracted metadata .
@@ -36,6 +37,7 @@ class Metaextractor(object):
             except Exception, e:
                 if not (self.config.get("skip_errors") == True):
                     raise
+                edict = {}
             if self.config['none_means_empty']: #clear out None values
                 edict = dict((k, v) for k, v in edict.iteritems() if v)
             edicts[ext.__module__[ext.__module__.rindex(".")+1:]] = edict
@@ -54,11 +56,28 @@ class Metaextractor(object):
     
     
 class BasePlugin(object):
-    ''' Basic plugin parent that defines the minimum functionality '''
+    ''' Basic plugin parent that defines the minimum functionality, it handles the "download only once" functionality using ContentHolder '''
     config = {}
     def __init__(self,config):
         self.config = config
         
     def extract(self,**kwargs):
+        content = kwargs['content_holder'].content if kwargs.has_key('content_holder') else kwargs.get('content')
+        if content!= None and hasattr(self,'extract_content') and hasattr(self.extract_content, '__call__'):
+            return self.extract_content(content=content, **kwargs)
+        elif hasattr(self,'extract_url') and hasattr(self.extract_url, '__call__'):
+            return self.extract_url(url=url, **kwargs)
         return {}
     
+class ContentHolder(object):
+    ''' Object representing content using url or downloaded content. It is used to avoid duplication of downloads '''
+    url = None
+    content = None
+    def __init__(self, *args, **kwargs):
+        if kwargs.has_key('content'):
+            self.content = kwargs.get('content')
+        if kwargs.has_key('url'):
+            self.url = kwargs.get('url')
+            rsp = requests.get(kwargs.get('url'))
+            if rsp.ok:
+                self.content = rsp.content

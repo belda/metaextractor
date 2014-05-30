@@ -1,19 +1,26 @@
 ''' Extracts data by basic html title etc '''
+import re
 from metaextractor import BasePlugin 
-import requests
 from lxml import etree
 
 
 class Extractor(BasePlugin):
-    def extract(self, **kwargs):
-        rsp = requests.get(kwargs.get('url'))
+    def extract_content(self, content,  **kwargs):
         ret = {}
-        root = etree.HTML(rsp.content)
+        root = etree.HTML(content)
         ret['title'] = xpathit(root,"//title")
-        ret['link'] = rsp.url
+        if kwargs.has_key("content_holder"):
+            ret['link'] = kwargs['content_holder'].url
         ret['image_url'] = xpathit(root, "//link[@rel='image_src']/@href")
         ret['description'] = xpathit(root, "//meta[@name='description']/@content")
+        ret['author'] = xpathit(root, "//meta[@name='author']/@content")
+        if not ret['author']:
+            try:
+                ret['author'] = re.search("^(https?:)?(\/\/)?(www\.)?(?P<author>[a-z0-9\.]+)(|\/|\/.+)$", ret['link']).groupdict().get('author')
+            except: #if it does not find, no biggie
+                pass
         return ret
+
         
 def xpathit(elm, xpath):
     """ Extracts textual representation of the xpath value from underneath element elm """
