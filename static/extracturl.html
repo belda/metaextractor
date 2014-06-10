@@ -128,7 +128,7 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
     		        $("#jsondata").html(syntaxHighlight(JSON.stringify(d, undefined, 4)));
     		        var rec = $("<div></div>");
     		        rec.append( $("<h4>"+d.title+"</h4>") );
-    		        rec.append( $("<img class='image_url' src='"+d.image_url+"' />") );
+    		        rec.append( $("<a href='"+d.image_url+"'><img class='image_url' src='https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?url="+d.image_url+"&container=focus&resize_w=220&refresh=3153600' /></a>") );
     		        rec.append( $("<p><a class='link' href='"+d.link+"'>"+d.link+"</a></p>") );
     		        rec.append( $("<p class='description'>"+d.description+"</p>") );
     		        rec.append( $("<p class='author'>author: "+d.author+"</p><div class='clearfix'/>") );

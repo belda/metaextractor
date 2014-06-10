@@ -1,10 +1,10 @@
 
 
-METAEXTRACTOR_CONFIG = { 'plugins'      : ['htmlfetch','opengraph'],
-                         'skip_errors'  : False }
+METAEXTRACTOR_CONFIG = { 'plugins'      : ['htmlfetch','omnidator'],
+                         'skip_errors'  : True }
 #METAEXTRACTOR_CONFIG['field_priority'] = { 'link' : [ 'schematoplugin', 'htmlfetch' ] }
 
-
+OPENCALAIS_API_KEY=""
 
 # *** schemato configuration ***********
 VALIDATOR_MODULES = [

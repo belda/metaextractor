@@ -19,6 +19,10 @@ class Extractor(BasePlugin):
                 ret['author'] = re.search("^(https?:)?(\/\/)?(www\.)?(?P<author>[a-z0-9\.]+)(|\/|\/.+)$", ret['link']).groupdict().get('author')
             except: #if it does not find, no biggie
                 pass
+        try:
+            ret['apple-touch-icon'] = xpathit(root, "//link[@rel='apple-touch-icon']/@href")
+        except:
+            pass
         return ret
 
         
