@@ -15,7 +15,6 @@ def mo():
         if request.args.get("config"):
              config.update(json.loads(request.args.get("config")))
         e = Metaextractor(config = config)
-        #TODO redis cache (request.args.get('nocache')
         ret = e.extract(url=url, content_holder = ContentHolder(url=url))
         return Response(json.dumps(ret ,encoding='utf-8', ensure_ascii=False), mimetype="text/json")
 

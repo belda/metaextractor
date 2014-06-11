@@ -6,6 +6,10 @@ METAEXTRACTOR_CONFIG = { 'plugins'      : ['htmlfetch','omnidator'],
 
 OPENCALAIS_API_KEY=""
 
+USE_REDIS = True
+REDIS_KEY_PREFIX = "ME-"
+REDIS_LOGIN = { 'host' :'localhost', 'port':6379, 'db':0} 
+
 # *** schemato configuration ***********
 VALIDATOR_MODULES = [
     "schemas.rnews.RNewsValidator",
