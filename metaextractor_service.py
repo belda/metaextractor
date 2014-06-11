@@ -1,7 +1,7 @@
 import json
 import os
 from settings import METAEXTRACTOR_CONFIG
-from metaextractor import Metaextractor, ContentHolder
+from metaextractor import extract, ContentHolder
 from flask import Flask,abort, request, redirect, Response
 app = Flask(__name__, static_url_path='/static')
 
@@ -14,8 +14,7 @@ def mo():
         config = dict(METAEXTRACTOR_CONFIG.items())
         if request.args.get("config"):
              config.update(json.loads(request.args.get("config")))
-        e = Metaextractor(config = config)
-        ret = e.extract(url=url, content_holder = ContentHolder(url=url))
+        ret = extract(config = config, url=url, content_holder = ContentHolder(url=url))
         return Response(json.dumps(ret ,encoding='utf-8', ensure_ascii=False), mimetype="text/json")
 
 

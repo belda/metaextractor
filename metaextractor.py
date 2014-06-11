@@ -3,8 +3,16 @@ import eplugins
 import requests
 import settings
 import json
+import redis
+import time
+from celery import Celery
+from celery.contrib.methods import task_method
 
-class Metaextractor(object):
+red = redis.StrictRedis(**settings.REDIS_LOGIN)
+jobq = Celery(settings.CELERY_TASKS_NAME, backend = settings.CELERY_BACKEND, broker = settings.CELERY_BROKER)
+
+        
+def extract(**kwargs):
     ''' Metaextractor uses available modules to process the input and returned extracted metadata .
         Without any parameters it loads all available plugins.
         params:
@@ -14,70 +22,90 @@ class Metaextractor(object):
                         'field_priority'  : { 'link' : [ 'schematoplugin', 'htmlfetch' ] }, #you can override the priority for individual fields (rightmost 
                                                                                             #override leftones
                         'nocache'    : true, #should the global cache be skipped,
-                         } '''
+                        'wait_for_jobs'     : 8 #how many seconds to wait for individual plugins to finish the job
+                         } 
+            - url    - url to extract from
+            - content_holder - ContentHolder instance, that helps with not downloading content multiple times'''
     
+    #init config
     config      = { 'plugins'           : [ modname for importer, modname, ispkg in pkgutil.iter_modules(eplugins.__path__) if not ispkg ],
                     'skip_errors'       : True, 
                     'none_means_empty'  : True,
-                    'nocache'           : False}
+                    'nocache'           : False,
+                    'wait_for_jobs'     : 10}
     extractors  = []
-    redis       = None
-    def __init__(self, *args, **kwargs):
-        if kwargs.has_key('config') and isinstance(kwargs.get('config'), dict):
-            self.config.update( kwargs.get('config') )
-        if settings.USE_REDIS:
-            try:
-                import redis
-                self.redis = redis.StrictRedis(**settings.REDIS_LOGIN)
-            except: # if the redis is not available, than continue without it
-                pass
-        for p in self.config['plugins']:
-            mod_name = 'eplugins.'+p
-            module = __import__(mod_name, fromlist=[mod_name,])
-            extractor = getattr(module, 'Extractor')(self.config) #instantiate the extractor from the eplugin
-            self.extractors.append(extractor)
+    if kwargs.has_key('config') and isinstance(kwargs.get('config'), dict):
+        config.update( kwargs.get('config') )
         
-    def extract(self,**kwargs):
-        ''' Extract the data from supplied argument 
-            params:
-                - url - the url address from which to extract
-                - content - the byte content of the file to be processed'''
-        #try the cache
-        if self.redis and kwargs.has_key('url'):
-            self.rediskey = settings.REDIS_KEY_PREFIX+"WHOLE-"+kwargs['url']+";"+json.dumps(self.config)
-            if not self.config['nocache']:
-                dd = self.redis.get(self.rediskey)
-                if dd:
-                    return json.loads(dd)
-        
-        #do the work
-        edicts = {}
-        for ext in self.extractors:
-            try:
-                edict = ext.extract(**kwargs)
-            except Exception, e:
-                if not (self.config.get("skip_errors") == True):
-                    raise
+    #try the cache
+    if red and kwargs.has_key('url'):
+        rediskey = settings.REDIS_KEY_PREFIX+"WHOLE-"+kwargs['url']+";"+json.dumps(config)
+        if not config['nocache']:
+            dd = red.get(rediskey)
+            if dd:
+                return json.loads(dd)
+    
+    #load up the plugins
+    for p in config['plugins']:
+        mod_name = 'eplugins.'+p
+        module = __import__(mod_name, fromlist=[mod_name,])
+        extractor = getattr(module, 'Extractor')(config) #instantiate the extractor from the eplugin
+        extractors.append(extractor)
+    
+    #do the work***
+    #initialize the content holder
+    if kwargs.has_key('content_holder'):
+        kwargs['content_holder'].content
+    #create the celery jobs
+    responses = {}
+    for ext in extractors:
+        responses[ext.name] = inner_extract.apply_async(args=[ext], kwargs=kwargs)
+    
+    #periodically chek, whether the responses are ready and collect them
+    edicts = {}
+    for i in range(0,config['wait_for_jobs']):
+        time.sleep(1)
+        allready = True
+        for ext in extractors:
+            if responses[ext.name].ready():
+                try:
+                    edict = responses[ext.name].get()
+                except Exception, e:
+                    if not (config.get("skip_errors") == True):
+                        raise
+                    edict = {}
+                if config['none_means_empty']: #clear out None values
+                    edict = dict((k, v) for k, v in edict.iteritems() if v)
+            else:
                 edict = {}
-            if self.config['none_means_empty']: #clear out None values
-                edict = dict((k, v) for k, v in edict.iteritems() if v)
-            edicts[ext.__module__[ext.__module__.rindex(".")+1:]] = edict
+                allready = False
+            edicts[ext.name] = edict
+        if allready:
+            break
+    
+    #prepare the response
+    ret = {}
+    for p in config['plugins']:
+        ret.update(edicts[p])
+        
+    #now overwrite the per field priority overrides
+    if config.has_key('field_priority'): 
+        for field in config['field_priority']:
+            fps = config['field_priority']['field']
+            for p in fps:
+                if edicts[p].has_key(field):
+                    ret[field] = edicts[p][field]
+      
+    #write back to cache              
+    if red and kwargs.has_key('url'):
+        red.set(rediskey, json.dumps(ret), settings.CACHE_EXPIRY)
+    return ret
 
-        ret = {}
-        for p in self.config['plugins']:
-            ret.update(edicts[p])
-            
-        if self.config.has_key('field_priority'): #now overwrite the per field priority overrides
-            for field in self.config['field_priority']:
-                fps = self.config['field_priority']['field']
-                for p in fps:
-                    if edicts[p].has_key(field):
-                        ret[field] = edicts[p][field]
-          
-        #write back to cache              
-        if self.redis and kwargs.has_key('url'):
-            self.redis.set(self.rediskey, json.dumps(ret), settings.CACHE_EXPIRY)
-        return ret
+
+@jobq.task( hard_time_limit=60)
+def inner_extract(plugin, **kwargs):
+    ''' Creates a background Celery job to run the extractors in paralel '''
+    return plugin.extract(**kwargs)
     
     
 class BasePlugin(object):
@@ -94,6 +122,10 @@ class BasePlugin(object):
             return self.extract_url(url=url, **kwargs)
         return {}
     
+    @property
+    def name(self):
+        return self.__module__[self.__module__.rindex(".")+1:]
+    
 class ContentHolder(object):
     ''' Object representing content using url or downloaded content. It is used to avoid duplication of downloads '''
     url = None
@@ -106,6 +138,7 @@ class ContentHolder(object):
     
     @property
     def content(self): 
+        ''' Content represents the whole downloaded content. It gets called when needed '''
         if self._content:
             return self._content
         if self.url:
