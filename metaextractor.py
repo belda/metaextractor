@@ -1,8 +1,6 @@
 import pkgutil
 import eplugins
 import requests
-import settings
-import json
 
 class Metaextractor(object):
     ''' Metaextractor uses available modules to process the input and returned extracted metadata .
@@ -13,24 +11,15 @@ class Metaextractor(object):
                         'none_means_empty' : True,     #when merging 2 dicts, consider that None value is same as empty and should be overwritten by a value
                         'field_priority'  : { 'link' : [ 'schematoplugin', 'htmlfetch' ] }, #you can override the priority for individual fields (rightmost 
                                                                                             #override leftones
-                        'nocache'    : true, #should the global cache be skipped,
                          } '''
     
     config      = { 'plugins'           : [ modname for importer, modname, ispkg in pkgutil.iter_modules(eplugins.__path__) if not ispkg ],
                     'skip_errors'       : True, 
-                    'none_means_empty'  : True,
-                    'nocache'           : False}
+                    'none_means_empty'  : True}
     extractors  = []
-    redis       = None
     def __init__(self, *args, **kwargs):
         if kwargs.has_key('config') and isinstance(kwargs.get('config'), dict):
             self.config.update( kwargs.get('config') )
-        if settings.USE_REDIS:
-            try:
-                import redis
-                self.redis = redis.StrictRedis(**settings.REDIS_LOGIN)
-            except: # if the redis is not available, than continue without it
-                pass
         for p in self.config['plugins']:
             mod_name = 'eplugins.'+p
             module = __import__(mod_name, fromlist=[mod_name,])
@@ -42,13 +31,6 @@ class Metaextractor(object):
             params:
                 - url - the url address from which to extract
                 - content - the byte content of the file to be processed'''
-        #try the cache
-        if self.redis and kwargs.has_key('url'):
-            self.rediskey = settings.REDIS_KEY_PREFIX+"WHOLE-"+kwargs['url']+";"+json.dumps(self.config)
-            if not self.config['nocache']:
-                dd = self.redis.get(self.rediskey)
-                if dd:
-                    return json.loads(dd)
         
         #do the work
         edicts = {}
@@ -74,9 +56,6 @@ class Metaextractor(object):
                     if edicts[p].has_key(field):
                         ret[field] = edicts[p][field]
           
-        #write back to cache              
-        if self.redis and kwargs.has_key('url'):
-            self.redis.set(self.rediskey, json.dumps(ret), settings.CACHE_EXPIRY)
         return ret
     
     
