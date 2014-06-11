@@ -17,11 +17,13 @@ def extract(**kwargs):
         Without any parameters it loads all available plugins.
         params:
             - config - { 'plugins' : ['htmlfetch', 'schematoplugin'],   #list of enabled plugins
-                        'skip_errors' : False,         #should errors in plugin be skipped  or propagated
-                        'none_means_empty' : True,     #when merging 2 dicts, consider that None value is same as empty and should be overwritten by a value
+                        'skip_errors' : False,                          #should errors in plugin be skipped  or propagated
+                        'none_means_empty' : True,                      #when merging 2 dicts, consider that None value is same as empty and should be overwritten by a value
                         'field_priority'  : { 'link' : [ 'schematoplugin', 'htmlfetch' ] }, #you can override the priority for individual fields (rightmost 
                                                                                             #override leftones
-                        'nocache'    : true, #should the global cache be skipped,
+                        'nocache'    : true,                            #should all caches be skipped    
+                        'nocache_global' : false,                       #should the global cache be skipped
+                        'nocache_plugins': ['htmlfetch'],               #should the cache be skipped for specified plugins
                         'wait_for_jobs'     : 8 #how many seconds to wait for individual plugins to finish the job
                          } 
             - url    - url to extract from
@@ -32,15 +34,18 @@ def extract(**kwargs):
                     'skip_errors'       : True, 
                     'none_means_empty'  : True,
                     'nocache'           : False,
+                    'nocache_global'    : False,
+                    'nocache_plugins'   : [],
                     'wait_for_jobs'     : 10}
     extractors  = []
     if kwargs.has_key('config') and isinstance(kwargs.get('config'), dict):
         config.update( kwargs.get('config') )
+        kwargs['config'] = config #to be able to put it to the other function
         
     #try the cache
     if red and kwargs.has_key('url'):
         rediskey = settings.REDIS_KEY_PREFIX+"WHOLE-"+kwargs['url']+";"+json.dumps(config)
-        if not config['nocache']:
+        if not (config['nocache'] or config['nocache_global']):
             dd = red.get(rediskey)
             if dd:
                 return json.loads(dd)
@@ -63,8 +68,8 @@ def extract(**kwargs):
     
     #periodically chek, whether the responses are ready and collect them
     edicts = {}
-    for i in range(0,config['wait_for_jobs']):
-        time.sleep(1)
+    for i in range(0,config['wait_for_jobs']*4,):
+        time.sleep(.25)
         allready = True
         for ext in extractors:
             if responses[ext.name].ready():
@@ -105,7 +110,20 @@ def extract(**kwargs):
 @jobq.task( hard_time_limit=60)
 def inner_extract(plugin, **kwargs):
     ''' Creates a background Celery job to run the extractors in paralel '''
-    return plugin.extract(**kwargs)
+    #try the cache
+    usecache = red and kwargs.has_key('url') and kwargs.has_key('config')
+    if usecache:
+        rediskey = settings.REDIS_KEY_PREFIX+"plugin-"+plugin.name+":"+kwargs['url']
+        if not (kwargs['config']['nocache'] or plugin.name in kwargs['config']['nocache_plugins']):
+            dd = red.get(rediskey)
+            if dd:
+                return json.loads(dd)
+    #get the data
+    ret = plugin.extract(**kwargs)
+    #write back to cache              
+    if usecache:
+        red.set(rediskey, json.dumps(ret), settings.CACHE_EXPIRY)
+    return ret
     
     
 class BasePlugin(object):
