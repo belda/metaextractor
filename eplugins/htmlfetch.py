@@ -8,11 +8,11 @@ class Extractor(BasePlugin):
     def extract_content(self, content,  **kwargs):
         ret = {}
         root = etree.HTML(content)
-        ret['title'] = xpathit(root,"//title")
+        ret['title'] = xpathit(root,"//title").strip()
         if kwargs.has_key("content_holder"):
             ret['link'] = kwargs['content_holder'].url
-        ret['image_url'] = xpathit(root, "//link[@rel='image_src']/@href")
-        ret['description'] = xpathit(root, "//meta[@name='description']/@content")
+        ret['image'] = xpathit(root, "//link[@rel='image_src']/@href")
+        ret['description'] = xpathit(root, "//meta[@name='description']/@content").strip()
         ret['author'] = xpathit(root, "//meta[@name='author']/@content")
         if not ret['author']:
             try:

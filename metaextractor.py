@@ -17,6 +17,7 @@ def extract(**kwargs):
         Without any parameters it loads all available plugins.
         params:
             - config - { 'plugins' : ['htmlfetch', 'schematoplugin'],   #list of enabled plugins
+                        'skip_plugins' : ['opencalais'],                #list of plugins, that are dissabled
                         'skip_errors' : False,                          #should errors in plugin be skipped  or propagated
                         'none_means_empty' : True,                      #when merging 2 dicts, consider that None value is same as empty and should be overwritten by a value
                         'field_priority'  : { 'link' : [ 'schematoplugin', 'htmlfetch' ] }, #you can override the priority for individual fields (rightmost 
@@ -31,6 +32,7 @@ def extract(**kwargs):
     
     #init config
     config      = { 'plugins'           : [ modname for importer, modname, ispkg in pkgutil.iter_modules(eplugins.__path__) if not ispkg ],
+                    'skip_plugins'      : [],
                     'skip_errors'       : True, 
                     'none_means_empty'  : True,
                     'nocache'           : False,
@@ -52,10 +54,11 @@ def extract(**kwargs):
     
     #load up the plugins
     for p in config['plugins']:
-        mod_name = 'eplugins.'+p
-        module = __import__(mod_name, fromlist=[mod_name,])
-        extractor = getattr(module, 'Extractor')(config) #instantiate the extractor from the eplugin
-        extractors.append(extractor)
+        if p not in config['skip_plugins']:
+            mod_name = 'eplugins.'+p
+            module = __import__(mod_name, fromlist=[mod_name,])
+            extractor = getattr(module, 'Extractor')(config) #instantiate the extractor from the eplugin
+            extractors.append(extractor)
     
     #do the work***
     #initialize the content holder
@@ -91,7 +94,7 @@ def extract(**kwargs):
     #prepare the response
     ret = {}
     for p in config['plugins']:
-        ret.update(edicts[p])
+        ret.update(edicts.get(p,{}))
         
     #now overwrite the per field priority overrides
     if config.has_key('field_priority'): 
@@ -103,7 +106,8 @@ def extract(**kwargs):
       
     #write back to cache              
     if red and kwargs.has_key('url'):
-        red.set(rediskey, json.dumps(ret), settings.CACHE_EXPIRY)
+        if len(ret.keys())>0: #do not cache empty
+            red.set(rediskey, json.dumps(ret), settings.CACHE_EXPIRY)
     return ret
 
 
@@ -162,7 +166,8 @@ class ContentHolder(object):
         if self.url:
             rsp = requests.get(self.url)
             if rsp.ok:
-                self._content = rsp.content
+                self._content = rsp.text
+                self.url = rsp.url
                 return self._content
         return None
     @content.setter

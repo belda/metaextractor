@@ -1,6 +1,6 @@
 
 
-METAEXTRACTOR_CONFIG = { 'plugins'      : ['htmlfetch','omnidator'],
+METAEXTRACTOR_CONFIG = { 'plugins'      : ['htmlfetch','opengraph','omnidator'],
                          'skip_errors'  : True }
 #METAEXTRACTOR_CONFIG['field_priority'] = { 'link' : [ 'schematoplugin', 'htmlfetch' ] }
 
