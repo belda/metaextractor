@@ -14,8 +14,8 @@ def mo():
         config = dict(METAEXTRACTOR_CONFIG.items())
         if request.args.get("config"):
              config.update(json.loads(request.args.get("config")))
-        ret = extract(config = config, url=url, content_holder = ContentHolder(url=url))
-        return Response(json.dumps(ret ,encoding='utf-8', ensure_ascii=False), mimetype="text/json")
+        ret = extract(config = config, url=url)
+        return Response(json.dumps(ret ,encoding='utf-8', ensure_ascii=True), mimetype="text/json")
 
 
 @app.route('/extracturl', methods=['GET'])

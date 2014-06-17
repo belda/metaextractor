@@ -1,10 +1,13 @@
 import pkgutil
 import eplugins
 import requests
+import re
+import charade
 import settings
 import json
 import redis
 import time
+from lxml import etree
 from celery import Celery
 from celery.contrib.methods import task_method
 
@@ -42,7 +45,7 @@ def extract(**kwargs):
     extractors  = []
     if kwargs.has_key('config') and isinstance(kwargs.get('config'), dict):
         config.update( kwargs.get('config') )
-        kwargs['config'] = config #to be able to put it to the other function
+#        kwargs['config'] = config #to be able to put it to the other function
         
     #try the cache
     if red and kwargs.has_key('url'):
@@ -62,12 +65,17 @@ def extract(**kwargs):
     
     #do the work***
     #initialize the content holder
-    if kwargs.has_key('content_holder'):
-        kwargs['content_holder'].content
+    #get the data
+    if kwargs.has_key('url'):
+        content_holder = ContentHolder(url=kwargs['url'], config=config)
+    elif kwargs.has_key('content'):
+        content_holder = ContentHolder(content=kwargs['content'], config=config)
+    else:
+        raise AttributeError("You must supply either url or content parameter")
     #create the celery jobs
     responses = {}
     for ext in extractors:
-        responses[ext.name] = inner_extract.apply_async(args=[ext], kwargs=kwargs)
+        responses[ext.name] = inner_extract.apply_async(args=[ext], kwargs=content_holder.__dict__)
     
     #periodically chek, whether the responses are ready and collect them
     edicts = {}
@@ -122,7 +130,6 @@ def inner_extract(plugin, **kwargs):
             dd = red.get(rediskey)
             if dd:
                 return json.loads(dd)
-    #get the data
     ret = plugin.extract(**kwargs)
     #write back to cache              
     if usecache:
@@ -137,11 +144,8 @@ class BasePlugin(object):
         self.config = config
         
     def extract(self,**kwargs):
-        content = kwargs['content_holder'].content if kwargs.has_key('content_holder') else kwargs.get('content')
-        if content!= None and hasattr(self,'extract_content') and hasattr(self.extract_content, '__call__'):
-            return self.extract_content(content=content, **kwargs)
-        elif hasattr(self,'extract_url') and hasattr(self.extract_url, '__call__'):
-            return self.extract_url(url=url, **kwargs)
+        self.content = content
+        self.encoding = kwargs.get('encoding', None)
         return {}
     
     @property
@@ -149,29 +153,42 @@ class BasePlugin(object):
         return self.__module__[self.__module__.rindex(".")+1:]
     
 class ContentHolder(object):
-    ''' Object representing content using url or downloaded content. It is used to avoid duplication of downloads '''
+    ''' Object representing content using url or downloaded content. It is used to avoid duplication of downloads, and easy access '''
+    content_holder = None
     url = None
-    _content = None
+    content = None
+    encoding = None
     def __init__(self, *args, **kwargs):
+        if kwargs.has_key('config'):
+            self.config = kwargs['config']
+            self.encoding = self.config.get("remote_encoding", None)
         if kwargs.has_key('content'):
-            self._content = kwargs.get('content')
+            self.content = kwargs.get('content')
         if kwargs.has_key('url'):
             self.url = kwargs.get('url')
-    
-    @property
-    def content(self): 
-        ''' Content represents the whole downloaded content. It gets called when needed '''
-        if self._content:
-            return self._content
-        if self.url:
+        if self.url and not self.content:
             rsp = requests.get(self.url)
             if rsp.ok:
-                self._content = rsp.text
+                if self.encoding:
+                    rsp.encoding = self.encoding
+                else:
+                    encodings = self.get_encodings_from_content(rsp.content)
+                    if encodings:
+                        self.encoding = encodings[0]
+                        rsp.encoding = encodings[0]
+                    else:
+                        rsp.encoding = rsp.apparent_encoding
+                        self.encoding = rsp.apparent_encoding
+                self.content = rsp.text
                 self.url = rsp.url
-                return self._content
-        return None
-    @content.setter
-    def content(self, val):
-        self._content = val
-            
-            
+            else:
+                raise requests.exceptions.RequestException("Remote content was not retrieved")
+                
+    def get_encodings_from_content(self, content):
+        charset_re = re.compile(r'<meta.*?charset=["\']*(.+?)["\'>]', flags=re.I)
+        pragma_re = re.compile(r'<meta.*?content=["\']*;?charset=(.+?)["\'>]', flags=re.I)
+        xml_re = re.compile(r'^<\?xml.*?encoding=["\']*(.+?)["\'>]')
+        # FIXME: Does not work in python 3
+        return (charset_re.findall(content) +
+                pragma_re.findall(content) +
+                xml_re.findall(content))

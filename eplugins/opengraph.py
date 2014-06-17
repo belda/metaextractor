@@ -1,13 +1,13 @@
 ''' Extracts data in opengraph atributes '''
 from metaextractor import BasePlugin 
-from htmlfetch import xpathit
 from lxml import etree
+from htmlfetch import Extractor as HE
 
-
-class Extractor(BasePlugin):
-    def extract_content(self, content,  **kwargs):
+class Extractor(HE):
+    def extract(self, content,  **kwargs):
         ret = {}
-        r = etree.HTML(content)
+        self.content = content
+        
         maps = ( ('title',      'title'),
                  ('link',       'url'),
                  ('image_url',  'image'),
@@ -16,6 +16,6 @@ class Extractor(BasePlugin):
                  ('author',     'site_name'),
                  ('og_type',    'type') )
         for a,b in maps:
-            ret[a] = xpathit(r, "//meta[@property='og:%s']/@content" % b)
+            ret[a] = self.xpath( "//meta[@property='og:%s' or @name='og:%s']/@content" % (b,b))
         return ret
 

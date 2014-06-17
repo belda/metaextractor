@@ -6,8 +6,8 @@ from schemato.distillery import ParselyDistiller, NewsDistiller
 
 
 class Extractor(BasePlugin):
-    def extract(self, **kwargs):
-        sch = Schemato(kwargs.get('url'))
+    def extract(self, url, **kwargs):
+        sch = Schemato(url)
         d1 = ParselyDistiller(sch)
         try:
             return d1.distill()

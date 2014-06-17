@@ -7,16 +7,16 @@ from settings import OPENCALAIS_API_KEY
 import requests
 
 class Extractor(BasePlugin):
-    def extract_content(self, content, **kwargs):
+    def extract(self, **kwargs):
         api = Calais(OPENCALAIS_API_KEY, submitter="Metaextractor")
-        result = api.analyze(content=content, content_type="TEXT/HTML")
+        if kwargs.has_key("text"):
+            result = api.analyze(content=kwargs['text'], content_type="TEXT/HTML")
+        elif kwargs.has_key("url"):
+            result = api.analyze_url(kwargs['url'])
+        else:
+            return {}
         return self.process_result(result)
 
-    def extract_url(self, url, **kwargs):
-        api = Calais(OPENCALAIS_API_KEY, submitter="Metaextractor")
-        result = api.analyze_url(url)
-        return self.process_result(result)
-        
     def process_result(self, result):
         ret = {}
         for k in ('entities', 'languages', 'socialTags', 'info', 'meta', 'relations', 'topics'):

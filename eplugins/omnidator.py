@@ -3,8 +3,7 @@ from metaextractor import BasePlugin
 import requests
 
 class Extractor(BasePlugin):
-    def extract(self, **kwargs):
-        url = kwargs.get('url')
+    def extract(self, url, **kwargs):
         rsp = requests.get("http://omnidator.appspot.com/microdata/json/?url="+url)
         if rsp.ok:
             js = rsp.json()
