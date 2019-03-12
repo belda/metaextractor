@@ -4,7 +4,7 @@ METAEXTRACTOR_CONFIG = { 'plugins'      : ['htmlfetch','opengraph','omnidator'],
                          'skip_errors'  : True }
 #METAEXTRACTOR_CONFIG['field_priority'] = { 'link' : [ 'schematoplugin', 'htmlfetch' ] }
 
-OPENCALAIS_API_KEY=""
+OPENCALAIS_API_KEY="t6bcvf5pg7yz2pnme6skzz8b"
 
 REDIS_KEY_PREFIX = "ME-"
 REDIS_LOGIN = { 'host' :'localhost', 'port':6379, 'db':0}
@@ -26,6 +26,6 @@ VALIDATOR_MODULES = [
 # root of schema cache
 CACHE_ROOT = "/tmp"
 # how many seconds to wait until re-cache
-CACHE_EXPIRY = 60 * 60 * 500
+CACHE_EXPIRY = 60 * 60 * 100
 
 # *** end schemato configuration *******

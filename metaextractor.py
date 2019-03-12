@@ -116,6 +116,8 @@ def extract(**kwargs):
     if red and kwargs.has_key('url'):
         if len(ret.keys())>0: #do not cache empty
             red.set(rediskey, json.dumps(ret), settings.CACHE_EXPIRY)
+    if ret == None or ret == "":
+        return {}
     return ret
 
 
